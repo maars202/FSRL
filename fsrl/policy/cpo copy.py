@@ -99,9 +99,7 @@ class CPO(BasePolicy):
             action_space, lr_scheduler
         )
         self.optim = optim
-        # modification:
-        # self._cost_limit = cost_limit
-        self._cost_limit = 1
+        self._cost_limit = cost_limit
         self._lambda = gae_lambda
         self._norm_adv = advantage_normalization
         self._max_backtracks = max_backtracks
@@ -174,18 +172,6 @@ class CPO(BasePolicy):
         cost_surrogate = self._ave_cost_return + torch.mean(
             torch.exp(logp - logp_old) * cadv
         ) - torch.mean(cadv)
-        return cost_surrogate
-
-    
-    # modification
-    def _get_cost_surrogate2(
-        self, logp: torch.Tensor, logp_old: torch.Tensor, cadv: torch.Tensor
-    ) -> torch.Tensor:
-        # need to have another way to estimate this -- check the monte carlo equation from schulman paper
-        estimated_average_return = 1
-        cost_surrogate = self._ave_cost_return + torch.mean(
-            torch.exp(logp - logp_old) * cadv
-        ) - torch.mean(cadv) - estimated_average_return
         return cost_surrogate
 
     def _MVP(self, v: torch.Tensor, flat_kl_grad: torch.Tensor) -> torch.Tensor:
@@ -318,13 +304,6 @@ class CPO(BasePolicy):
             lam = torch.zeros_like(nu)
         # line search
         with torch.no_grad():
-            # goal is to decrease the constraint value as much as possible???:
-            # choose between "regret" of choosing best vs recovering from bad choice (ACPO):
-            # delta_theta = (1. / (lam + EPS)) * (
-            #     H_inv_g + nu * H_inv_b
-            # ) if optim_case > 0 else nu * H_inv_b
-
-            # possible modification: recovery policy here, recovery policy same as ACPO?:
             delta_theta = (1. / (lam + EPS)) * (
                 H_inv_g + nu * H_inv_b
             ) if optim_case > 0 else nu * H_inv_b
