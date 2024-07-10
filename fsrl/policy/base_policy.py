@@ -525,7 +525,7 @@ class BasePolicy(ABC, nn.Module):
 
 
 @njit
-def gae_return_proposed(
+def gae_return_old(
     value: np.ndarray,
     value_next: np.ndarray,
     rew: np.ndarray,
