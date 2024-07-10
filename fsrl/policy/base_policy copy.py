@@ -435,10 +435,8 @@ class BasePolicy(ABC, nn.Module):
                 v[i] = v[i] * np.sqrt(self.ret_rms[i].var + self._eps)
                 v_next[i] = v_next[i] * np.sqrt(self.ret_rms[i].var + self._eps)
 
-
-            # modified:
             adv = gae_return(
-                v[i], v_next[i], metrics[i], end_flag, self._gamma, gae_lambda, batch.rew
+                v[i], v_next[i], metrics[i], end_flag, self._gamma, gae_lambda
             )
             ret = adv + v[i]
             if self._rew_norm:
@@ -518,14 +516,13 @@ class BasePolicy(ABC, nn.Module):
         f32 = np.array([0, 1], dtype=np.float32)
         b = np.array([False, True], dtype=np.bool_)
         i64 = np.array([[0, 1]], dtype=np.int64)
-        # modified:
-        gae_return(f64, f64, f64, b, 0.1, 0.1, 0.1)
-        gae_return(f32, f32, f64, b, 0.1, 0.1, 0.1)
+        gae_return(f64, f64, f64, b, 0.1, 0.1)
+        gae_return(f32, f32, f64, b, 0.1, 0.1)
         nstep_return(f64, b, f32.reshape(-1, 1), i64, 0.1, 1)
 
 
 @njit
-def gae_return_proposed(
+def gae_return(
     value: np.ndarray,
     value_next: np.ndarray,
     rew: np.ndarray,
@@ -542,41 +539,6 @@ def gae_return_proposed(
         returns[i] = gae
     return returns
 
-
-# modification:
-@njit
-def gae_return(
-    value: np.ndarray,
-    value_next: np.ndarray,
-    rew: np.ndarray,
-    end_flag: np.ndarray,
-    gamma: float,
-    gae_lambda: float,
-    avg_reward: float
-) -> np.ndarray:
-    """
-    Calculate the average-reward version of the GAE return.
-    
-    Parameters:
-    value (np.ndarray): Value function estimate at time t.
-    value_next (np.ndarray): Value function estimate at time t+1.
-    rew (np.ndarray): Rewards.
-    end_flag (np.ndarray): Binary flags indicating episode end.
-    gamma (float): Discount factor.
-    gae_lambda (float): GAE lambda parameter.
-    avg_reward (float): Estimated average reward Ĵ_π.
-    
-    Returns:
-    np.ndarray: GAE returns.
-    """
-    returns = np.zeros(rew.shape)
-    delta = rew - avg_reward + value_next * gamma - value
-    discount = (1.0 - end_flag) * (gamma * gae_lambda)
-    gae = 0.0
-    for i in range(len(rew) - 1, -1, -1):
-        gae = delta[i] + discount[i] * gae
-        returns[i] = gae
-    return returns
 
 @njit
 def nstep_return(
