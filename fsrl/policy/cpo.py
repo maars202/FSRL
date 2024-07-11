@@ -257,8 +257,12 @@ class CPO(BasePolicy):
         kl = kl_divergence(dist_old, dist).mean()
 
         objective = self._get_objective(logp, minibatch.logp_old, minibatch.advs[..., 0])
+        # modification: cost_surrogate uses advs2 instead which uses new cost advantage function
+        # cost_surrogate = self._get_cost_surrogate(
+        #     logp, minibatch.logp_old, minibatch.advs[..., 1]
+        # )
         cost_surrogate = self._get_cost_surrogate(
-            logp, minibatch.logp_old, minibatch.advs[..., 1]
+            logp, minibatch.logp_old, minibatch.advs2[..., 1]
         )
         loss_actor_total = objective + cost_surrogate
 

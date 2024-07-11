@@ -411,7 +411,7 @@ class BasePolicy(ABC, nn.Module):
         end_flag[np.isin(indices, buffer.unfinished_index())] = True
         v = [[] for _ in range(self.critics_num)]
         v_next = [[] for _ in range(self.critics_num)]
-        values, returns, advantages = [], [], []
+        values, returns, advantages, advantages2 = [], [], [], []
 
         with torch.no_grad():
             for minibatch in batch.split(
@@ -438,13 +438,13 @@ class BasePolicy(ABC, nn.Module):
 
             # modified:
             print(f"[debug] batch: {batch}")
-            estimated_avg_reward = batch.info.cost
+            estimated_avg_cost = batch.info.cost
             adv = gae_return_old_reward(
                 v[i], v_next[i], metrics[i], end_flag, self._gamma, gae_lambda
             )
 
             adv_cost = gae_return_cost(
-                v[i], v_next[i], metrics[i], end_flag, self._gamma, gae_lambda, estimated_avg_reward
+                v[i], v_next[i], metrics[i], end_flag, self._gamma, gae_lambda, estimated_avg_cost
             )
             ret = adv + v[i]
             if self._rew_norm:
@@ -452,10 +452,12 @@ class BasePolicy(ABC, nn.Module):
                 self.ret_rms[i].update(ret)
             returns.append(to_torch_as(ret, values[0]))
             advantages.append(to_torch_as(adv, values[0]))
+            advantages2.append(to_torch_as(adv_cost, values[0]))
 
         batch.values = torch.stack(values, dim=-1)
         batch.rets = torch.stack(returns, dim=-1)
         batch.advs = torch.stack(advantages, dim=-1)
+        batch.advs2 = torch.stack(advantages2, dim=-1)
         return batch
 
     def compute_nstep_returns(
