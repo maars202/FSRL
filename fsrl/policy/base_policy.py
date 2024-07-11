@@ -437,8 +437,14 @@ class BasePolicy(ABC, nn.Module):
 
 
             # modified:
-            adv = gae_return(
-                v[i], v_next[i], metrics[i], end_flag, self._gamma, gae_lambda, batch.rew
+            print(f"[debug] batch: {batch}")
+            estimated_avg_reward = batch.info.cost
+            adv = gae_return_old_reward(
+                v[i], v_next[i], metrics[i], end_flag, self._gamma, gae_lambda
+            )
+
+            adv_cost = gae_return_cost(
+                v[i], v_next[i], metrics[i], end_flag, self._gamma, gae_lambda, estimated_avg_reward
             )
             ret = adv + v[i]
             if self._rew_norm:
@@ -519,13 +525,15 @@ class BasePolicy(ABC, nn.Module):
         b = np.array([False, True], dtype=np.bool_)
         i64 = np.array([[0, 1]], dtype=np.int64)
         # modified:
-        gae_return(f64, f64, f64, b, 0.1, 0.1, 0.1)
-        gae_return(f32, f32, f64, b, 0.1, 0.1, 0.1)
+        # gae_return(f64, f64, f64, b, 0.1, 0.1, 0.1)
+        # gae_return(f32, f32, f64, b, 0.1, 0.1, 0.1)
+        gae_return_old_reward(f32, f32, f64, b, 0.1, 0.1)
+        gae_return_cost(f32, f32, f64, b, 0.1, 0.1, 0.1)
         nstep_return(f64, b, f32.reshape(-1, 1), i64, 0.1, 1)
 
 
 @njit
-def gae_return_old(
+def gae_return_old_reward(
     value: np.ndarray,
     value_next: np.ndarray,
     rew: np.ndarray,
@@ -543,37 +551,77 @@ def gae_return_old(
     return returns
 
 
-# modification:
+# modification: subtracting estimated average cost
 @njit
-def gae_return(
+def gae_return_cost_1(
     value: np.ndarray,
     value_next: np.ndarray,
-    rew: np.ndarray,
+    cost: np.ndarray,
     end_flag: np.ndarray,
     gamma: float,
     gae_lambda: float,
-    avg_reward: float
+    avg_cost: float
 ) -> np.ndarray:
     """
-    Calculate the average-reward version of the GAE return.
+    Calculate the average-cost version of the GAE return.
     
     Parameters:
     value (np.ndarray): Value function estimate at time t.
     value_next (np.ndarray): Value function estimate at time t+1.
-    rew (np.ndarray): Rewards.
+    cost (np.ndarray): costs.
     end_flag (np.ndarray): Binary flags indicating episode end.
     gamma (float): Discount factor.
     gae_lambda (float): GAE lambda parameter.
-    avg_reward (float): Estimated average reward Ĵ_π.
+    avg_cost (float): Estimated average cost Ĵ_π.
     
     Returns:
     np.ndarray: GAE returns.
     """
-    returns = np.zeros(rew.shape)
-    delta = rew - avg_reward + value_next * gamma - value
+    returns = np.zeros(cost.shape)
+    delta = cost - avg_cost + value_next * gamma - value
     discount = (1.0 - end_flag) * (gamma * gae_lambda)
     gae = 0.0
-    for i in range(len(rew) - 1, -1, -1):
+    for i in range(len(cost) - 1, -1, -1):
+        gae = delta[i] + discount[i] * gae
+        returns[i] = gae
+    return returns
+
+
+# modification: no discount factor/gamma and has average cost subtracted out
+@njit
+def gae_return_cost(
+    value: np.ndarray,
+    value_next: np.ndarray,
+    cost: np.ndarray,
+    end_flag: np.ndarray,
+    gamma: float,
+    gae_lambda: float,
+    avg_cost: float
+) -> np.ndarray:
+    """
+    Calculate the average-cost version of the GAE return.
+    
+    Parameters:
+    value (np.ndarray): Value function estimate at time t.
+    value_next (np.ndarray): Value function estimate at time t+1.
+    cost (np.ndarray): costs.
+    end_flag (np.ndarray): Binary flags indicating episode end.
+    gamma (float): Discount factor, for average setting infinite horizon, y discount factor decreases rapidly as any effects from it in long run are eventually forgotten 
+    gae_lambda (float): GAE lambda parameter which controls where monte carlo ( when lamba = 1, focuses on effective time horizon ) or bootstrap estimate ( when lamba = 0, focuses on variance of gradient estimator)is used 
+    avg_cost (float): Estimated average cost Ĵ_π.
+    
+    Returns:
+    np.ndarray: GAE returns.
+    """
+    returns = np.zeros(cost.shape)
+    # this part is for calculating monte carlo part where lambda = 0:
+    delta = cost - avg_cost + value_next - value
+    # gamma is removed, only lambda needed for balancing bias-variance tradeoff between MC and boot
+    discount = (1.0 - end_flag) * (gae_lambda)
+
+    # this part is for calculating monte carlo part where lambda = 1:
+    gae = 0.0
+    for i in range(len(cost) - 1, -1, -1):
         gae = delta[i] + discount[i] * gae
         returns[i] = gae
     return returns
