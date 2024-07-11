@@ -437,7 +437,7 @@ class BasePolicy(ABC, nn.Module):
 
 
             # modified:
-            print(f"[debug] batch: {batch}")
+            # print(f"[debug] batch: {batch}")
             estimated_avg_cost = batch.info.cost
             adv = gae_return_old_reward(
                 v[i], v_next[i], metrics[i], end_flag, self._gamma, gae_lambda
