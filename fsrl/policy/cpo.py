@@ -176,18 +176,6 @@ class CPO(BasePolicy):
         ) - torch.mean(cadv)
         return cost_surrogate
 
-    
-    # modification
-    def _get_cost_surrogate2(
-        self, logp: torch.Tensor, logp_old: torch.Tensor, cadv: torch.Tensor
-    ) -> torch.Tensor:
-        # need to have another way to estimate this -- check the monte carlo equation from schulman paper
-        estimated_average_return = 1
-        cost_surrogate = self._ave_cost_return + torch.mean(
-            torch.exp(logp - logp_old) * cadv
-        ) - torch.mean(cadv) - estimated_average_return
-        return cost_surrogate
-
     def _MVP(self, v: torch.Tensor, flat_kl_grad: torch.Tensor) -> torch.Tensor:
         """Matrix vector product."""
         # caculate second order gradient of kl with respect to theta
@@ -305,7 +293,7 @@ class CPO(BasePolicy):
                 optim_case = 0
 
         # modification: sigma changed to sigma + t1
-        # t1 = α i β i2, α is cost advantage gradient and β is prob gradient of reward???
+        # t1 = α i β i2, α is cost advantage gradient and β is (probably) gradient of reward 
         # t1 = grad_b * (grad_g ** 2)
         t1 = torch.matmul(grad_b, torch.square(grad_g))
         sigma = 2 * self._delta + t1
@@ -332,10 +320,6 @@ class CPO(BasePolicy):
         with torch.no_grad():
             # goal is to decrease the constraint value as much as possible???:
             # choose between "regret" of choosing best vs recovering from bad choice (ACPO):
-            # delta_theta = (1. / (lam + EPS)) * (
-            #     H_inv_g + nu * H_inv_b
-            # ) if optim_case > 0 else nu * H_inv_b
-
             # possible modification: recovery policy here, recovery policy same as ACPO?:
             delta_theta = (1. / (lam + EPS)) * (
                 H_inv_g + nu * H_inv_b

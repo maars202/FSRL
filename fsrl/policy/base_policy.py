@@ -620,7 +620,6 @@ def gae_return_cost(
     delta = cost - avg_cost + value_next - value
     # gamma is removed, only lambda needed for balancing bias-variance tradeoff between MC and boot
     discount = (1.0 - end_flag) * (gae_lambda)
-
     # this part is for calculating monte carlo part where lambda = 1:
     gae = 0.0
     for i in range(len(cost) - 1, -1, -1):
