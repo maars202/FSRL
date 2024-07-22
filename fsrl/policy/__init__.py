@@ -2,6 +2,7 @@
 """Policy package."""
 
 from fsrl.policy.base_policy import BasePolicy
+from fsrl.policy.base_policy_prob import BasePolicy as BasePolicy_PROB
 from fsrl.policy.cvpo import CVPO
 from fsrl.policy.lagrangian_base import LagrangianPolicy
 from fsrl.policy.ddpg_lag import DDPGLagrangian
@@ -10,6 +11,7 @@ from fsrl.policy.trpo_lag import TRPOLagrangian
 from fsrl.policy.sac_lag import SACLagrangian
 from fsrl.policy.focops import FOCOPS
 from fsrl.policy.cpo import CPO
+from fsrl.policy.cpo_prob import CPO as CPO_PROB
 
 __all__ = [
     "BasePolicy", "LagrangianPolicy", "DDPGLagrangian", "SACLagrangian", "PPOLagrangian",

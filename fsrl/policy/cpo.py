@@ -99,9 +99,7 @@ class CPO(BasePolicy):
             action_space, lr_scheduler
         )
         self.optim = optim
-        # modification:
-        # self._cost_limit = cost_limit
-        self._cost_limit = 1
+        self._cost_limit = cost_limit
         self._lambda = gae_lambda
         self._norm_adv = advantage_normalization
         self._max_backtracks = max_backtracks
@@ -245,12 +243,8 @@ class CPO(BasePolicy):
         kl = kl_divergence(dist_old, dist).mean()
 
         objective = self._get_objective(logp, minibatch.logp_old, minibatch.advs[..., 0])
-        # modification: cost_surrogate uses advs2 instead which uses new cost advantage function
-        # cost_surrogate = self._get_cost_surrogate(
-        #     logp, minibatch.logp_old, minibatch.advs[..., 1]
-        # )
         cost_surrogate = self._get_cost_surrogate(
-            logp, minibatch.logp_old, minibatch.advs2[..., 1]
+            logp, minibatch.logp_old, minibatch.advs[..., 1]
         )
         loss_actor_total = objective + cost_surrogate
 
@@ -278,49 +272,38 @@ class CPO(BasePolicy):
             scalar_s = torch.dot(approx_b, H_inv_b)
 
             # should be always positive (Cauchy-Shwarz)
-            # qs≥r2 --> q - r2/s ≥ 0
             A_value = scalar_q - scalar_r**2 / scalar_s
             # does safety boundary intersect trust region? (positive = yes)
-            # c2/s − δ ≤ 0 --> -c2/s + δ > 0
             B_value = 2 * self._delta - c_value**2 / scalar_s
             if c_value < 0 and B_value < 0:
                 optim_case = 3
             elif c_value < 0 and B_value >= 0:
                 optim_case = 2
-            elif c_value >= 0 and B_value >= 0: # problem infeasible since c2/s − δ > 0 and c > 0
+            elif c_value >= 0 and B_value >= 0:
                 optim_case = 1
             else:
                 optim_case = 0
 
-        # modification: sigma changed to sigma + t1
-        # t1 = α i β i2, α is cost advantage gradient and β is (probably) gradient of reward 
-        # t1 = grad_b * (grad_g ** 2)
-        t1 = torch.matmul(grad_b, torch.square(grad_g))
-        sigma = 2 * self._delta + t1
         if optim_case in [3, 4]:
-            lam = torch.sqrt(scalar_q / (sigma))
+            lam = torch.sqrt(scalar_q / (2 * self._delta))
             nu = torch.zeros_like(lam)
         elif optim_case in [1, 2]:
             LA, LB = [0, scalar_r / c_value], [scalar_r / c_value, np.inf]
-            # Observe that when c < 0, Λa = [0,r/c) and Λb = [r/c,∞); when c > 0, Λa = [r/c,∞) and Λb = [0,r/c).
             LA, LB = (LA, LB) if c_value < 0 else (LB, LA)
             proj = lambda x, L: max(L[0], min(L[1], x))
             lam_a = proj(torch.sqrt(A_value / B_value), LA)
-            lam_b = proj(torch.sqrt(scalar_q / (sigma)), LB)
+            lam_b = proj(torch.sqrt(scalar_q / (2 * self._delta)), LB)
             f_a = lambda lam: -0.5 * (A_value / (lam + EPS) + B_value * lam
                                       ) - scalar_r * c_value / (scalar_s + EPS)
-            f_b = lambda lam: -0.5 * (scalar_q / (lam + EPS) + sigma * lam)
+            f_b = lambda lam: -0.5 * (scalar_q / (lam + EPS) + 2 * self._delta * lam)
             lam = lam_a if f_a(lam_a) >= f_b(lam_b) else lam_b
             lam = torch.tensor(lam)
             nu = max(0, (lam * c_value - scalar_r).item()) / (scalar_s + EPS)
         else:
-            nu = torch.sqrt(sigma / (scalar_s + EPS))
+            nu = torch.sqrt(2 * self._delta / (scalar_s + EPS))
             lam = torch.zeros_like(nu)
         # line search
         with torch.no_grad():
-            # goal is to decrease the constraint value as much as possible???:
-            # choose between "regret" of choosing best vs recovering from bad choice (ACPO):
-            # possible modification: recovery policy here, recovery policy same as ACPO?:
             delta_theta = (1. / (lam + EPS)) * (
                 H_inv_g + nu * H_inv_b
             ) if optim_case > 0 else nu * H_inv_b

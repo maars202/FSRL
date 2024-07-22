@@ -6,7 +6,8 @@ from typing import Optional, Tuple
 class TrainCfg:
     # general task params
     task: str = "SafetyCarCircle-v0"
-    cost_limit: float = 10
+    # cost_limit: float = 10
+    cost_limit: float = 1000 # for a = 1000
     device: str = "cpu"
     thread: int = 4  # if use "cpu" to train
     seed: int = 10

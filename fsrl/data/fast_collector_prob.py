@@ -14,7 +14,7 @@ from tianshou.data import (
 )
 from tianshou.env import BaseVectorEnv, DummyVectorEnv
 
-from fsrl.policy import BasePolicy
+from fsrl.policy import BasePolicy_PROB
 
 
 class FastCollector(object):
@@ -46,7 +46,7 @@ class FastCollector(object):
 
     def __init__(
         self,
-        policy: BasePolicy,
+        policy: BasePolicy_PROB,
         env: Union[gym.Env, BaseVectorEnv],
         buffer: Optional[ReplayBuffer] = None,
         preprocess_fn: Optional[Callable[..., Batch]] = None,
@@ -195,6 +195,8 @@ class FastCollector(object):
         random: bool = False,
         render: bool = False,
         no_grad: bool = True,
+        # modification:
+        cost_limit = 1,
         gym_reset_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Collect a specified number of step or episode.
@@ -323,7 +325,9 @@ class FastCollector(object):
                 )
 
             cost = self.data.info.get("cost", np.zeros(rew.shape))
-            total_cost += np.sum(cost)
+            # total_cost += np.sum(cost)
+            # modification:
+            total_cost += 1 if np.sum(cost) >= cost_limit else 0
             self.data.update(cost=cost)
 
             if render:
@@ -395,14 +399,17 @@ class FastCollector(object):
             rew_mean = len_mean = 0
 
         done_count = termination_count + truncation_count
-
-        return {
+        to_pass_on = {
             "n/ep": episode_count,
             "n/st": step_count,
             "rew": rew_mean,
             "len": len_mean,
             "total_cost": total_cost,
-            "cost": total_cost / episode_count,
+            "cost": total_cost / step_count,
+            "cost_original": total_cost / episode_count,
             "truncated": truncation_count / done_count,
             "terminated": termination_count / done_count,
         }
+        print(to_pass_on)
+
+        return to_pass_on
