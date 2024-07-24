@@ -327,7 +327,8 @@ class FastCollector(object):
             cost = self.data.info.get("cost", np.zeros(rew.shape))
             # total_cost += np.sum(cost)
             # modification:
-            total_cost += 1 if np.sum(cost) >= cost_limit else 0
+            # total_cost += 1 if np.sum(cost) >= cost_limit else 0
+            # total_cost += 1 if np.sum(cost) >= cost_prob else 0
             self.data.update(cost=cost)
 
             if render:
@@ -405,8 +406,8 @@ class FastCollector(object):
             "rew": rew_mean,
             "len": len_mean,
             "total_cost": total_cost,
-            "cost": total_cost / step_count,
-            "cost_original": total_cost / episode_count,
+            # "cost": total_cost / step_count,
+            "cost": total_cost / episode_count,
             "truncated": truncation_count / done_count,
             "terminated": termination_count / done_count,
         }
