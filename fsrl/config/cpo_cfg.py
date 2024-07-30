@@ -7,7 +7,8 @@ class TrainCfg:
     # general task params
     task: str = "SafetyCarCircle-v0"
     # cost_limit: float = 10
-    cost_limit: float = 10 # for a = 1000
+    cost_limit: float = 10 # for a = 1000; this is also cost threshold d
+    cost_probability = 0.01 # cost threshold d
     device: str = "cpu"
     thread: int = 4  # if use "cpu" to train
     seed: int = 10
